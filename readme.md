@@ -29,7 +29,7 @@
 ```mysql
 DELETE
 FROM page_link
-WHERE ONE IN(SELECT
+WHERE href IN(SELECT
                href
              FROM (SELECT
                      href
@@ -53,66 +53,55 @@ WHERE ONE IN(SELECT
 
 ```python
 from pymysql import connect
-import re
 
 def connectDB():
-    """
-    数据库连接的相关信息在此修改
-    """
-    host = '127.0.0.1'
-    user_name = 'root'
-    password = '123456'
-    database = 'tripadvisor_co'
-    db = connect(host=host, user=user_name, password=password, db=database)
+    db = connect('127.0.0.1', 'root', '123456', 'tripadvisor_co')
     return db
+
+class Review:
+    id = ''
+    pl_id = ''
+    
 db = connectDB()
 cursor = db.cursor()
 
-
-sql = "SELECT * FROM review"
-sql2 = "SELECT * FROM page_link"
-
-cursor.execute(sql)
-reviews = cursor.fetchall()
-
-cursor.execute(sql2)
-page_links = cursor.fetchall()
-
-page_link_dict={}
-for page_link in page_links:
-    page_link_dict[page_link[1]] = page_link[0]
+page_link_all_sql = "SELECT id,href FROM page_link"
+cursor.execute(page_link_all_sql)
+page_links_results = cursor.fetchall()
+page_link_dict ={}
+for i in range(len(page_links_results)):
+    key_list = page_links_results[i][1].split("-")
+    "/ShowTopic-g662290-i11495-k13360913-Anyone_else_risking_it-Puerto_Del_Carmen_Lanzarote_Canary_Islands.html"
+    key = key_list[1] +key_list[2] +key_list[3]
+    page_link_dict[key] = page_links_results[i][0]
     
 
-review_lists = []
-
-temps = []
-for review in reviews:
-    review_list = []
-    review_id = review[0]
-    pl_id = 0
-    text = review[6].split('https://www.tripadvisor.com')[1]
-    url_splits = re.split(r'-o\d+-',text)
-    if len(url_splits) == 2:
-        url = url_splits[0] + '-' + url_splits[1]
-        if url in  page_link_dict.keys():
-            pl_id = page_link_dict[url]
-        else:
-            pld_id = 0
-            print(review_id)
-            temps.append(review_id)
-            continue
-    else:
-        pl_id = page_link_dict[text]
     
-    review_list.append(review_id)
-    review_list.append(pl_id)
-    review_lists.append(review_list)
     
-sql = "UPDATE review SET pl_id=%s WHERE id= %s"
-for review_list in review_lists:
-    cursor.execute(sql,[review_list[1],review_list[0]])
 
-db.commit()
+review_1_sql = "SELECT id,href FROM review"
+cursor.execute(review_1_sql)
+
+review_1_results = cursor.fetchall()
+review_list =[]
+for i in range(len(review_1_results)):
+    review = Review()
+    review.id = review_1_results[i][0]
+    key_list = review_1_results[i][1].split("-")
+    key = key_list[1] + key_list[2] + key_list[3]
+    review.pl_id = page_link_dict.get(key)
+    review_list.append(review)
+    
+    
+def update_db(db,review_list):
+    cursor = db.cursor()
+    sql = "UPDATE review SET pl_id = %s WHERE id = %s"
+    for review in review_list:
+        cursor.execute(sql,[review.pl_id,review.id])
+    db.commit()
+    
+    
+update_db(db,review_list)
     
 ```
 
